@@ -4,14 +4,14 @@ export default {
   theme: {
     extend: {
       colors: {
-        background: "var(--color-bg)",
+        background: "var(--color-background)",
         surface: "var(--color-surface)",
         primary: "var(--color-primary)",
         secondary: "var(--color-secondary)",
 
-        textPrimary: "var(--color-text-primary)",
-        textSecondary: "var(--color-text-secondary)",
-        textMuted: "var(--color-text-muted)",
+        textPrimary: "var(--color-textPrimary)",
+        textSecondary: "var(--color-textSecondary)",
+        textMuted: "var(--color-textMuted)",
 
         border: "var(--color-border)",
 
