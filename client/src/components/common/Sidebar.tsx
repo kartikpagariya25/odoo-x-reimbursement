@@ -1,7 +1,11 @@
 import { NavLink } from "react-router-dom";
 
-export const Sidebar = () => {
-    
+type MenuItem = {
+  label: string;
+  path: string;
+};
+
+export const Sidebar = ({ items }: { items: MenuItem[] }) => {
   return (
     <aside className="w-64 min-h-screen bg-surface border-r border-border px-4 py-5">
       <h2 className="mb-6 text-lg font-semibold tracking-tight text-textPrimary">
