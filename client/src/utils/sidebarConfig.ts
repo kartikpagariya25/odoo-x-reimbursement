@@ -1,23 +1,60 @@
-type Role = "ADMIN" | "MANAGER" | "EMPLOYEE";
+// config/sidebarConfig.ts
 
-export const sidebarConfig: Record<Role, any[]> = {
+export type Role = "ADMIN" | "MANAGER" | "EMPLOYEE";
+
+type SidebarItem = {
+  label: string;
+  path: string;
+};
+
+type SidebarSection = {
+  section?: string;
+  items: SidebarItem[];
+};
+
+export const sidebarConfig: Record<Role, SidebarSection[]> = {
   ADMIN: [
-    { label: "Overview", path: "/admin" },
-    { label: "All Expenses", path: "/admin/expenses" },
-    { label: "Users", path: "/admin/users" },
-    { label: "Approval Rules", path: "/admin/rules" },
-    { label: "Company Settings", path: "/admin/settings" },
+    {
+      section: "Main",
+      items: [
+        { label: "Overview", path: "/admin" },
+        { label: "All Expenses", path: "/admin/expenses" },
+      ],
+    },
+    {
+      section: "Manage",
+      items: [
+        { label: "Users", path: "/admin/users" },
+        { label: "Approval Rules", path: "/admin/rules" },
+      ],
+    },
+    {
+      section: "Account",
+      items: [
+        { label: "Company Settings", path: "/admin/settings" },
+      ],
+    },
   ],
 
   MANAGER: [
-    { label: "Dashboard", path: "/manager" },
-    { label: "Approvals", path: "/manager/approvals" },
-    { label: "Team Expenses", path: "/manager/expenses" },
+    {
+      section: "Main",
+      items: [
+        { label: "Dashboard", path: "/manager" },
+        { label: "Approvals", path: "/manager/approvals" },
+        { label: "Team Expenses", path: "/manager/expenses" },
+      ],
+    },
   ],
 
   EMPLOYEE: [
-    { label: "Dashboard", path: "/employee" },
-    { label: "My Expenses", path: "/employee/expenses" },
-    { label: "Submit Expense", path: "/employee/submit" },
+    {
+      section: "Main",
+      items: [
+        { label: "Dashboard", path: "/employee" },
+        { label: "My Expenses", path: "/employee/expenses" },
+        { label: "Submit Expense", path: "/employee/submit" },
+      ],
+    },
   ],
 };
