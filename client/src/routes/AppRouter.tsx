@@ -18,6 +18,8 @@ import EmployeeLayout from "../layouts/EmployeeLayout";
 import AdminDashboard from "../pages/admin/AdminDashboard";
 import ManagerDashboard from "../pages/manager/ManagerDashboard";
 import EmployeeDashboard from "../pages/employee/EmployeeDashboard";
+import ExpenseHistory from "../pages/employee/ExpenseHistory";
+import SubmitExpense from "../pages/employee/SubmitExpense";
 
 export const AppRouter = () => {
   const user = useAuthStore((s) => s.user);
@@ -74,6 +76,8 @@ export const AppRouter = () => {
         }
       >
         <Route index element={<EmployeeDashboard />} />
+        <Route path="expenses" element={<ExpenseHistory />} />
+        <Route path="submit" element={<SubmitExpense />} />
       </Route>
 
       {/* Unauthorized */}
