@@ -4,14 +4,14 @@
 
 module.exports = {
   ROLES: {
-    ADMIN: 'admin',
-    MANAGER: 'manager',
-    EMPLOYEE: 'employee'
+    ADMIN: 'ADMIN',
+    MANAGER: 'MANAGER',
+    EMPLOYEE: 'EMPLOYEE'
   },
   STATUS: {
-    PENDING: 'pending',
-    APPROVED: 'approved',
-    REJECTED: 'rejected'
+    PENDING: 'PENDING',
+    APPROVED: 'APPROVED',
+    REJECTED: 'REJECTED'
   },
   RULE_TYPES: {
     SEQUENTIAL: 'sequential',
