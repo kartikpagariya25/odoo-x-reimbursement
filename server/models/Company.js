@@ -13,6 +13,9 @@ const companySchema = new mongoose.Schema({
   currencyCode: {
     type: String,
     required: true,
+    uppercase: true,
+    trim: true,
+    match: /^[A-Z]{3}$/
   }
 }, { timestamps: true });
 

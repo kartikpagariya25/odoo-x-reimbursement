@@ -1,6 +1,13 @@
 const mongoose = require('mongoose');
 const { STATUS } = require('../config/constants');
 
+const normalizeAction = (value) => {
+  if (typeof value !== "string") {
+    return value;
+  }
+  return value.toUpperCase();
+};
+
 const approvalActionSchema = new mongoose.Schema({
   expenseId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -14,7 +21,8 @@ const approvalActionSchema = new mongoose.Schema({
   },
   action: {
     type: String,
-    enum: [STATUS.APPROVED, STATUS.REJECTED],
+    enum: Object.values(STATUS),
+    set: normalizeAction,
     required: true,
   },
   stepIndex: {

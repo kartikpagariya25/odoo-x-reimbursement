@@ -19,7 +19,7 @@ const auditLogSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.Mixed, // Can be user ID, expense ID, rule ID, etc.
   },
   details: {
-    type: String, // Additional info about the action
+    type: mongoose.Schema.Types.Mixed, // Additional info about the action
   }
 }, { timestamps: true });
 

@@ -1,13 +1,22 @@
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 
-const connectDB = async () => {
-  try {
-    const conn = await mongoose.connect(process.env.MONGO_URI);
-    console.log(`MongoDB Connected: ${conn.connection.host}`);
-  } catch (error) {
-    console.error(`MongoDB connection error: ${error.message}`);
-    process.exit(1);
-  }
+const DEFAULT_DB_OPTIONS = {
+	maxPoolSize: 10,
+	serverSelectionTimeoutMS: 10000,
+	socketTimeoutMS: 45000,
+	retryWrites: true,
+	w: "majority"
 };
 
-module.exports = connectDB;
+const connectDB = async () => {
+	const mongoUri = process.env.MONGO_URI;
+
+	if (!mongoUri) {
+		throw new Error("MONGO_URI is not configured");
+	}
+
+	await mongoose.connect(mongoUri, DEFAULT_DB_OPTIONS);
+	return mongoose.connection;
+};
+
+module.exports = { connectDB };
