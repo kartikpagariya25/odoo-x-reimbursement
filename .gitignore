@@ -10,3 +10,7 @@ client/dist/
 Thumbs.db
 *.log
 npm-debug.log*
+
+apiEndpoints.md
+schema.md
+TODO
