@@ -2,9 +2,9 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-type Role = "ADMIN" | "MANAGER" | "EMPLOYEE";
+export type Role = "ADMIN" | "MANAGER" | "EMPLOYEE";
 
-type User = {
+export type User = {
   id: string;
   name: string;
   email: string;
@@ -20,7 +20,6 @@ type User = {
 type AuthState = {
   user: User | null;
   token: string | null;
-
   isAuthenticated: boolean;
 
   login: (data: { user: User; token: string }) => void;
