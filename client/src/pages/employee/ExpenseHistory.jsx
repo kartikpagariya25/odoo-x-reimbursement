@@ -17,7 +17,7 @@ const ExpenseHistory = () => {
     try {
       setLoading(true);
       const data = await expenseService.getMyExpenses();
-      setExpenses(data);
+      setExpenses(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("Failed to fetch expenses:", error);
     } finally {
@@ -109,7 +109,7 @@ const ExpenseHistory = () => {
             <tbody className="divide-y divide-border">
               {filteredExpenses.map((expense) => (
                 <tr
-                  key={expense.id}
+                  key={expense._id || expense.id}
                   className="hover:bg-background/50 transition-colors"
                 >
                   <td className="px-4 py-3 text-sm text-textSecondary">

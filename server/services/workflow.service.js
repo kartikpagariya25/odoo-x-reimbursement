@@ -106,10 +106,16 @@ exports.approveStep = async (expenseId, approverId, comment = "") => {
     // Mark approver as approved
     approver.status = "APPROVED";
 
-    // Check if all approvers in step are approved (for parallel) or just mark done (for sequential)
-    const allApproversDone = currentStep.approvers.every(a => a.status !== "PENDING");
+    const requiredApprovers = currentStep.approvers.filter((a) => a.isRequired);
+    const allRequiredApproved = requiredApprovers.every((a) => a.status === "APPROVED");
+    const approvedCount = currentStep.approvers.filter((a) => a.status === "APPROVED").length;
+    const totalApprovers = currentStep.approvers.length;
+    const threshold = Number(currentStep.threshold ?? 100);
+    const approvalPercent = totalApprovers > 0 ? (approvedCount / totalApprovers) * 100 : 0;
+    const allApproversDone = currentStep.approvers.every((a) => a.status !== "PENDING");
 
-    if (allApproversDone) {
+    const meetsThreshold = approvalPercent >= threshold;
+    if ((allApproversDone || meetsThreshold) && allRequiredApproved) {
       currentStep.status = "APPROVED";
       expense.currentStep = currentStepIndex + 1;
     }

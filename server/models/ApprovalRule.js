@@ -14,6 +14,14 @@ const stepSchema = new mongoose.Schema({
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User"
+    },
+    isRequired: {
+      type: Boolean,
+      default: false
+    },
+    order: {
+      type: Number,
+      default: 0
     }
   }],
   ruleType: {
@@ -33,7 +41,7 @@ const stepSchema = new mongoose.Schema({
   },
   keyApprover: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User', // Only relevant if specific rule requires it
+    ref: 'User',
   }
 });
 
@@ -48,14 +56,35 @@ const approvalRuleSchema = new mongoose.Schema({
     required: true,
     trim: true,
   },
+  description: {
+    type: String
+  },
+  employeeId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+    default: null
+  },
+  managerId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+    default: null
+  },
   category: String,
   isManagerApprover: {
     type: Boolean,
-    default: false,
+    default: false
+  },
+  isSequence: {
+    type: Boolean,
+    default: true
+  },
+  minApprovalPercentage: {
+    type: Number,
+    default: 100
   },
   isActive: {
     type: Boolean,
-    default: true,
+    default: true
   },
   steps: [stepSchema]
 }, { timestamps: true });

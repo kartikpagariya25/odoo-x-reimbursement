@@ -79,7 +79,7 @@ const validateLogin = (req) => {
 const validateCreateUser = (req) => {
   const errors = [];
   const payload = req.body || {};
-  const { name, email, password, role } = payload;
+  const { name, email, password, role, firstName, lastName, managerId } = payload;
 
   if (!name || typeof name !== "string") {
     errors.push("User name is required");
@@ -94,7 +94,40 @@ const validateCreateUser = (req) => {
     errors.push("Invalid role");
   }
 
-  return { valid: errors.length === 0, errors };
+  // Password validation (optional)
+  if (password !== undefined) {
+    if (typeof password !== "string") {
+      errors.push("password must be a string");
+    } else if (password.length < 6) {
+      errors.push("password must be at least 6 characters");
+    }
+  }
+
+  // Name validation
+  if (name !== undefined) {
+    if (typeof name !== "string" || !name.trim()) {
+      errors.push("name must be a non-empty string");
+    }
+  } else if (!firstName || !lastName || typeof firstName !== "string" || typeof lastName !== "string") {
+    errors.push("Either name or firstName + lastName is required");
+  }
+
+  // Role validation
+  if (role && !["ADMIN", "MANAGER", "EMPLOYEE"].includes(role)) {
+    errors.push("Invalid role");
+  }
+
+  // Manager ID validation (optional)
+  if (managerId !== undefined && managerId !== null) {
+    if (!mongoose.Types.ObjectId.isValid(managerId)) {
+      errors.push("managerId must be a valid ObjectId");
+    }
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors
+  };
 };
 
 module.exports = { validateRegisterCompany, validateSignup, validateLogin, validateCreateUser };

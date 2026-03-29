@@ -12,6 +12,26 @@ const { matchExpenseToRule, buildApprovalChain } = require("../services/rule.ser
 const { STATUS } = require("../config/constants");
 
 
+const normalizeObjectId = (value) => {
+  if (!value) {
+    return null;
+  }
+
+  if (typeof value === "string" && mongoose.Types.ObjectId.isValid(value)) {
+    return value;
+  }
+
+  if (mongoose.isValidObjectId(value)) {
+    return String(value);
+  }
+
+  if (typeof value === "object" && value._id && mongoose.Types.ObjectId.isValid(value._id)) {
+    return String(value._id);
+  }
+
+  return null;
+};
+
 exports.scanReceipt = async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: "No image file uploaded." });
@@ -249,8 +269,12 @@ exports.rejectExpense = async (req, res) => {
 exports.submitExpense = async (req, res) => {
   try {
     const employeeId = req.user.userId;
-    const companyId = req.user.companyId;
+    const companyId = normalizeObjectId(req.user.companyId);
     const { amount, category, currency, description, merchantName, date } = req.body;
+
+    if (!companyId) {
+      return res.status(401).json({ error: "Invalid company in auth token" });
+    }
 
     // Get employee
     const employee = await User.findById(employeeId);
@@ -258,12 +282,12 @@ exports.submitExpense = async (req, res) => {
       return res.status(404).json({ error: "Employee not found" });
     }
 
-    if (!employee.companyId.equals(companyId)) {
+    if (String(employee.companyId) !== companyId) {
       return res.status(403).json({ error: "Employee not in your company" });
     }
 
     // Match to rule
-    const rule = await matchExpenseToRule(category, companyId);
+    const rule = await matchExpenseToRule(category, companyId, employeeId);
     if (!rule) {
       return res.status(400).json({ error: `No approval rule found for category: ${category}` });
     }
@@ -345,7 +369,12 @@ exports.getMyExpenses = async (req, res) => {
 exports.getExpenseDetail = async (req, res) => {
   try {
     const { id } = req.params;
-    const { userId, role, companyId } = req.user;
+    const { userId, role } = req.user;
+    const companyId = normalizeObjectId(req.user.companyId);
+
+    if (!companyId) {
+      return res.status(401).json({ error: "Invalid company in auth token" });
+    }
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({ error: "Invalid expense ID" });
@@ -386,16 +415,65 @@ exports.getExpenseDetail = async (req, res) => {
  */
 exports.getAllExpenses = async (req, res) => {
   try {
-    const companyId = req.user.companyId;
+    const companyId = normalizeObjectId(req.user.companyId);
+    const { search, category, status, from, to } = req.query;
+
+    if (!companyId) {
+      return res.status(401).json({ error: "Invalid company in auth token" });
+    }
 
     const expenses = await Expense.find({ companyId })
       .populate("employeeId", "name email role")
       .populate("ruleId", "name category")
       .sort({ createdAt: -1 });
 
+    const filtered = expenses.filter((expense) => {
+      if (category && category !== "All" && category !== "ALL" && expense.category !== category) {
+        return false;
+      }
+
+      if (status && status !== "All" && status !== "ALL" && expense.status !== status) {
+        return false;
+      }
+
+      const createdAt = expense.date || expense.createdAt;
+      if (from) {
+        const fromDate = new Date(from);
+        if (createdAt < fromDate) {
+          return false;
+        }
+      }
+
+      if (to) {
+        const toDate = new Date(to);
+        toDate.setHours(23, 59, 59, 999);
+        if (createdAt > toDate) {
+          return false;
+        }
+      }
+
+      if (search) {
+        const haystack = [
+          expense.employeeId?.name,
+          expense.description,
+          expense.merchantName,
+          expense.category
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+
+        if (!haystack.includes(String(search).toLowerCase())) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+
     return res.status(200).json({
       success: true,
-      data: expenses
+      data: filtered
     });
   } catch (error) {
     console.error("❌ Get all expenses error:", error);
@@ -494,5 +572,52 @@ exports.getTeamExpenses = async (req, res) => {
   } catch (error) {
     console.error("❌ Get team expenses error:", error);
     return res.status(500).json({ error: error.message || "Failed to fetch team expenses" });
+  }
+};
+
+/**
+ * Get expense audit trail (Admin only)
+ * GET /expenses/:id/audit
+ */
+exports.getExpenseAuditTrail = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const companyId = normalizeObjectId(req.user.companyId);
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: "Invalid expense ID" });
+    }
+
+    const expense = await Expense.findOne({ _id: id, companyId })
+      .populate("employeeId", "name email role")
+      .populate("approvalChain.approvers.userId", "name email role");
+
+    if (!expense) {
+      return res.status(404).json({ error: "Expense not found" });
+    }
+
+    const [approvalActions, auditLogs] = await Promise.all([
+      ApprovalAction.find({ expenseId: id })
+        .populate("approverId", "name email role")
+        .sort({ createdAt: 1 }),
+      AuditLog.find({
+        companyId,
+        "details.expenseId": id
+      })
+        .populate("actorId", "name email role")
+        .sort({ createdAt: 1 })
+    ]);
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        expense,
+        approvalActions,
+        auditLogs
+      }
+    });
+  } catch (error) {
+    console.error("❌ Get expense audit trail error:", error);
+    return res.status(500).json({ error: error.message || "Failed to fetch expense audit trail" });
   }
 };
