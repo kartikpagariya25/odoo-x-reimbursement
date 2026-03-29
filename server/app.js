@@ -25,6 +25,7 @@ app.get("/api/health", (req, res) => {
 });
 
 // 🔹 Routes
+app.use("/api/auth", require("./routes/auth.routes"));
 app.use("/api/expenses", require("./routes/expense.routes"));
 
 // 🔹 Serve frontend if exists
