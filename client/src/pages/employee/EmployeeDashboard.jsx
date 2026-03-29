@@ -26,15 +26,22 @@ const EmployeeDashboard = () => {
       const [expensesData] = await Promise.all([
         expenseService.getMyExpenses(),
       ]);
+      const expenseList = Array.isArray(expensesData) ? expensesData : [];
 
       // Calculate stats
-      const total = expensesData.reduce((sum, exp) => sum + exp.amount, 0);
-      const pending = expensesData.filter((e) => e.status === "PENDING").reduce((sum, e) => sum + e.amount, 0);
-      const approved = expensesData.filter((e) => e.status === "APPROVED").reduce((sum, e) => sum + e.amount, 0);
-      const rejected = expensesData.filter((e) => e.status === "REJECTED").reduce((sum, e) => sum + e.amount, 0);
+      const total = expenseList.reduce((sum, exp) => sum + Number(exp.amount || 0), 0);
+      const pending = expenseList
+        .filter((e) => e.status === "PENDING")
+        .reduce((sum, e) => sum + Number(e.amount || 0), 0);
+      const approved = expenseList
+        .filter((e) => e.status === "APPROVED")
+        .reduce((sum, e) => sum + Number(e.amount || 0), 0);
+      const rejected = expenseList
+        .filter((e) => e.status === "REJECTED")
+        .reduce((sum, e) => sum + Number(e.amount || 0), 0);
 
       setStats({ total, pending, approved, rejected });
-      setRecentExpenses(expensesData.slice(0, 5));
+      setRecentExpenses(expenseList.slice(0, 5));
     } catch (error) {
       console.error("Failed to fetch dashboard data:", error);
     } finally {
@@ -188,7 +195,7 @@ const EmployeeDashboard = () => {
               </thead>
               <tbody className="divide-y divide-border">
                 {recentExpenses.map((expense) => (
-                  <tr key={expense.id} className="hover:bg-background/50">
+                  <tr key={expense._id || expense.id} className="hover:bg-background/50">
                     <td className="px-4 py-3 text-sm text-textSecondary">
                       {formatDate(expense.createdAt)}
                     </td>

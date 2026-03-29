@@ -10,6 +10,7 @@ const {
   getExpenseDetail,
   getAllExpenses,
   overrideExpense,
+  getExpenseAuditTrail,
   getTeamExpenses
 } = require("../controllers/expense.controller");
 const { validate } = require("../middleware/validate.middleware");
@@ -53,16 +54,21 @@ router.post(
 router.get("/", authMiddleware, roleMiddleware("EMPLOYEE"), getMyExpenses);
 
 /**
- * GET /expenses/:id
- * Get expense detail
- */
-router.get("/:id", authMiddleware, getExpenseDetail);
-
-/**
  * GET /expenses/all
  * Get all expenses (Admin only)
  */
 router.get("/all", authMiddleware, roleMiddleware("ADMIN"), getAllExpenses);
+
+/**
+ * GET /expenses/:id/audit
+ * Get expense audit details (Admin only)
+ */
+router.get(
+  "/:id/audit",
+  authMiddleware,
+  roleMiddleware("ADMIN"),
+  getExpenseAuditTrail
+);
 
 /**
  * POST /expenses/:id/override
@@ -75,5 +81,11 @@ router.post(
   validate(validateOverride),
   overrideExpense
 );
+
+/**
+ * GET /expenses/:id
+ * Get expense detail
+ */
+router.get("/:id", authMiddleware, getExpenseDetail);
 
 module.exports = router;

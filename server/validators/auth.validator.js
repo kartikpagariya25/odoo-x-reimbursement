@@ -69,12 +69,12 @@ exports.validateLogin = (req) => {
 };
 
 /**
- * Validate create user request: email, password, firstName, lastName, role, managerId (optional)
- * Called by Admin to create new users
+ * Validate create user request for admin inline user management.
+ * Supports either `name` or `firstName`+`lastName` and optional password.
  */
 exports.validateCreateUser = (req) => {
   const errors = [];
-  const { email, password, firstName, lastName, role, managerId } = req.body;
+  const { email, password, firstName, lastName, name, role, managerId } = req.body;
   const mongoose = require("mongoose");
 
   // Email validation
@@ -84,21 +84,22 @@ exports.validateCreateUser = (req) => {
     errors.push("email format is invalid");
   }
 
-  // Password validation
-  if (!password || typeof password !== "string") {
-    errors.push("password is required and must be a string");
-  } else if (password.length < 6) {
-    errors.push("password must be at least 6 characters");
+  // Password validation (optional)
+  if (password !== undefined) {
+    if (typeof password !== "string") {
+      errors.push("password must be a string");
+    } else if (password.length < 6) {
+      errors.push("password must be at least 6 characters");
+    }
   }
 
-  // First name validation
-  if (!firstName || typeof firstName !== "string") {
-    errors.push("firstName is required and must be a string");
-  }
-
-  // Last name validation
-  if (!lastName || typeof lastName !== "string") {
-    errors.push("lastName is required and must be a string");
+  // Name validation
+  if (name !== undefined) {
+    if (typeof name !== "string" || !name.trim()) {
+      errors.push("name must be a non-empty string");
+    }
+  } else if (!firstName || !lastName || typeof firstName !== "string" || typeof lastName !== "string") {
+    errors.push("Either name or firstName + lastName is required");
   }
 
   // Role validation

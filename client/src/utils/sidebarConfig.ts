@@ -2,10 +2,11 @@ type Role = "ADMIN" | "MANAGER" | "EMPLOYEE";
 
 export const sidebarConfig: Record<Role, any[]> = {
   ADMIN: [
-    { label: "Dashboard", path: "/admin" },
+    { label: "Overview", path: "/admin" },
+    { label: "All Expenses", path: "/admin/expenses" },
     { label: "Users", path: "/admin/users" },
-    { label: "Expenses", path: "/admin/expenses" },
-    { label: "Settings", path: "/admin/settings" },
+    { label: "Approval Rules", path: "/admin/rules" },
+    { label: "Company Settings", path: "/admin/settings" },
   ],
 
   MANAGER: [

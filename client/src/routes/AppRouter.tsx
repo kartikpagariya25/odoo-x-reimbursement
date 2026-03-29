@@ -16,6 +16,10 @@ import EmployeeLayout from "../layouts/EmployeeLayout";
 
 // Pages (Nested)
 import AdminDashboard from "../pages/admin/AdminDashboard";
+import AllExpenses from "../pages/admin/AllExpenses";
+import ManageUsers from "../pages/admin/ManageUsers";
+import ApprovalRules from "../pages/admin/ApprovalRules";
+import ManageRoles from "../pages/admin/ManageRoles";
 import ManagerDashboard from "../pages/manager/ManagerDashboard";
 import EmployeeDashboard from "../pages/employee/EmployeeDashboard";
 import ExpenseHistory from "../pages/employee/ExpenseHistory";
@@ -41,13 +45,18 @@ export const AppRouter = () => {
       <Route
         path="/admin"
         element={
-          <AdminLayout />
+          <ProtectedRoute>
+            <RoleBasedRoute allowedRoles={["ADMIN"]}>
+              <AdminLayout />
+            </RoleBasedRoute>
+          </ProtectedRoute>
         }
       >
         <Route index element={<AdminDashboard />} />
-        {/* future routes */}
-        {/* <Route path="users" element={<Users />} /> */}
-        {/* <Route path="expenses" element={<Expenses />} /> */}
+        <Route path="expenses" element={<AllExpenses />} />
+        <Route path="users" element={<ManageUsers />} />
+        <Route path="rules" element={<ApprovalRules />} />
+        <Route path="settings" element={<ManageRoles />} />
       </Route>
 
       {/* ================= MANAGER ================= */}

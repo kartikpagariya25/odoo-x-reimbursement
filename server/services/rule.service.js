@@ -10,13 +10,27 @@ const User = require("../models/User");
  * @param {string} companyId - Company ObjectId
  * @returns {Object|null} Matching ApprovalRule or null
  */
-exports.matchExpenseToRule = async (category, companyId) => {
+exports.matchExpenseToRule = async (category, companyId, employeeId = null) => {
   try {
-    const rule = await ApprovalRule.findOne({
-      category,
-      companyId,
-      isActive: true
-    }).populate("steps.approvers.userId");
+    let rule = null;
+
+    if (employeeId) {
+      rule = await ApprovalRule.findOne({
+        companyId,
+        employeeId,
+        isActive: true,
+        $or: [{ category }, { category: { $exists: false } }, { category: null }, { category: "" }]
+      }).populate("steps.approvers.userId");
+    }
+
+    if (!rule) {
+      rule = await ApprovalRule.findOne({
+        category,
+        companyId,
+        isActive: true,
+        employeeId: null
+      }).populate("steps.approvers.userId");
+    }
 
     return rule;
   } catch (error) {
@@ -48,18 +62,24 @@ exports.buildApprovalChain = async (rule, employeeId, companyId) => {
         step,
         employeeId,
         companyId,
-        rule.isManagerApprover
+        rule.isManagerApprover,
+        rule.managerId
       );
+
+      const sortedApprovers = [...approversList].sort((a, b) => (a.order || 0) - (b.order || 0));
 
       approvalChain.push({
         stepIndex: step.stepIndex,
         status: "PENDING",
-        approvers: approversList.map(approver => ({
+        approvers: sortedApprovers.map(approver => ({
           userId: approver._id,
-          status: "PENDING"
+          status: "PENDING",
+          isRequired: Boolean(approver.isRequired),
+          order: approver.order || 0
         })),
         isParallel: step.isParallel || false,
-        ruleType: step.ruleType
+        ruleType: step.ruleType,
+        threshold: step.threshold || rule.minApprovalPercentage || 100
       });
     }
 
@@ -86,7 +106,13 @@ exports.buildApprovalChain = async (rule, employeeId, companyId) => {
  * @param {boolean} isManagerApprover - Whether manager should be auto-included
  * @returns {Array} Array of User objects who should approve this step
  */
-exports.getApproversForStep = async (step, employeeId, companyId, isManagerApprover) => {
+exports.getApproversForStep = async (
+  step,
+  employeeId,
+  companyId,
+  isManagerApprover,
+  managerIdOverride = null
+) => {
   try {
     let approvers = [];
 
@@ -97,16 +123,49 @@ exports.getApproversForStep = async (step, employeeId, companyId, isManagerAppro
         _id: { $in: approverIds },
         companyId
       });
-      approvers = [...approvers, ...approverUsers];
+
+      const approverMap = new Map();
+      for (const user of approverUsers) {
+        approverMap.set(String(user._id), user);
+      }
+
+      for (const stepApprover of step.approvers) {
+        const mapped = approverMap.get(String(stepApprover.userId));
+        if (mapped) {
+          approvers.push({
+            ...mapped.toObject(),
+            _id: mapped._id,
+            isRequired: Boolean(stepApprover.isRequired),
+            order: stepApprover.order || 0
+          });
+        }
+      }
     }
 
     // Add manager if enabled
     if (isManagerApprover) {
-      const employee = await User.findById(employeeId).populate("managerId");
-      if (employee && employee.managerId) {
-        const managerExists = approvers.find(a => a._id.equals(employee.managerId._id));
+      let managerUser = null;
+
+      if (managerIdOverride) {
+        managerUser = await User.findOne({ _id: managerIdOverride, companyId });
+      }
+
+      if (!managerUser) {
+        const employee = await User.findById(employeeId).populate("managerId");
+        if (employee && employee.managerId) {
+          managerUser = employee.managerId;
+        }
+      }
+
+      if (managerUser) {
+        const managerExists = approvers.find(a => a._id.equals(managerUser._id));
         if (!managerExists) {
-          approvers.push(employee.managerId);
+          approvers.push({
+            ...managerUser.toObject(),
+            _id: managerUser._id,
+            isRequired: false,
+            order: 0
+          });
         }
       }
     }

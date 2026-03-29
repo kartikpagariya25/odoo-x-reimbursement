@@ -10,14 +10,35 @@ const normalizeRuleType = (value) => {
 
 const approvalRuleSchema = new mongoose.Schema({
   name: String,
+  description: String,
 
   companyId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Company"
   },
 
+  employeeId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+    default: null
+  },
+
+  managerId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+    default: null
+  },
+
   category: String,
   isManagerApprover: Boolean,
+  isSequence: {
+    type: Boolean,
+    default: true
+  },
+  minApprovalPercentage: {
+    type: Number,
+    default: 100
+  },
   isActive: Boolean,
 
   steps: [
@@ -28,6 +49,14 @@ const approvalRuleSchema = new mongoose.Schema({
           userId: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "User"
+          },
+          isRequired: {
+            type: Boolean,
+            default: false
+          },
+          order: {
+            type: Number,
+            default: 0
           }
         }
       ],

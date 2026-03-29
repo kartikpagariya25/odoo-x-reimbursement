@@ -40,25 +40,25 @@ exports.signup = async (req, res) => {
 
     // Generate JWT token
     const token = generateToken({
-      userId: admin._id,
+      userId: String(admin._id),
       email: admin.email,
       role: admin.role,
-      companyId: admin.companyId
+      companyId: String(admin.companyId)
     });
 
     return res.status(201).json({
       success: true,
       data: {
         user: {
-          id: admin._id,
+          id: String(admin._id),
           name: admin.name,
           email: admin.email,
           role: admin.role,
-          companyId: admin.companyId
+          companyId: String(admin.companyId)
         },
         token,
         company: {
-          id: company._id,
+          id: String(company._id),
           name: company.name,
           country: company.country,
           currencyCode: company.currencyCode
@@ -81,7 +81,7 @@ exports.login = async (req, res) => {
     const { email, password } = req.body;
 
     // Find user by email
-    const user = await User.findOne({ email: email.toLowerCase() }).populate("companyId");
+    const user = await User.findOne({ email: email.toLowerCase() });
 
     if (!user) {
       return res.status(401).json({ error: "Invalid email or password" });
@@ -93,25 +93,35 @@ exports.login = async (req, res) => {
       return res.status(401).json({ error: "Invalid email or password" });
     }
 
+    const company = await Company.findById(user.companyId);
+
     // Generate JWT token
     const token = generateToken({
-      userId: user._id,
+      userId: String(user._id),
       email: user.email,
       role: user.role,
-      companyId: user.companyId
+      companyId: String(user.companyId)
     });
 
     return res.status(200).json({
       success: true,
       data: {
         user: {
-          id: user._id,
+          id: String(user._id),
           name: user.name,
           email: user.email,
           role: user.role,
-          companyId: user.companyId
+          companyId: String(user.companyId)
         },
-        token
+        token,
+        company: company
+          ? {
+              id: String(company._id),
+              name: company.name,
+              country: company.country,
+              currencyCode: company.currencyCode
+            }
+          : null
       }
     });
   } catch (error) {

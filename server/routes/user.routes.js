@@ -5,7 +5,8 @@ const {
   createUser,
   getAllUsers,
   updateUser,
-  deleteUser
+  deleteUser,
+  sendPassword
 } = require("../controllers/user.controller");
 const { authMiddleware } = require("../middleware/auth.middleware");
 const { roleMiddleware } = require("../middleware/role.middleware");
@@ -50,6 +51,17 @@ router.delete(
   authMiddleware,
   roleMiddleware("ADMIN"),
   deleteUser
+);
+
+/**
+ * POST /users/:id/send-password
+ * Generate and send temporary password (Admin only)
+ */
+router.post(
+  "/:id/send-password",
+  authMiddleware,
+  roleMiddleware("ADMIN"),
+  sendPassword
 );
 
 module.exports = router;

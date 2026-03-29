@@ -2,6 +2,14 @@ import axiosInstance from "../utils/axiosInstance";
 
 const API_URL = "/api/expenses";
 
+const unwrapData = (response) => {
+  if (response?.data?.data !== undefined) {
+    return response.data.data;
+  }
+
+  return response?.data;
+};
+
 export const expenseService = {
   /**
    * Get all expenses for the current user
@@ -9,7 +17,7 @@ export const expenseService = {
    */
   getMyExpenses: async () => {
     const response = await axiosInstance.get(API_URL);
-    return response.data;
+    return unwrapData(response);
   },
 
   /**
@@ -19,7 +27,7 @@ export const expenseService = {
    */
   getExpenseById: async (id) => {
     const response = await axiosInstance.get(`${API_URL}/${id}`);
-    return response.data;
+    return unwrapData(response);
   },
 
   /**
@@ -28,12 +36,8 @@ export const expenseService = {
    * @returns {Promise<Object>} Created expense
    */
   createExpense: async (expenseData) => {
-    const response = await axiosInstance.post(API_URL, expenseData, {
-      headers: {
-        "Content-Type": "multipart/form-data",
-      },
-    });
-    return response.data;
+    const response = await axiosInstance.post(API_URL, expenseData);
+    return unwrapData(response);
   },
 
   /**
@@ -44,7 +48,7 @@ export const expenseService = {
    */
   updateExpense: async (id, expenseData) => {
     const response = await axiosInstance.put(`${API_URL}/${id}`, expenseData);
-    return response.data;
+    return unwrapData(response);
   },
 
   /**
@@ -62,7 +66,22 @@ export const expenseService = {
    * @returns {Promise<Object>} Paginated expenses
    */
   getExpensesWithFilters: async (params) => {
-    const response = await axiosInstance.get(API_URL, { params });
-    return response.data;
+    const response = await axiosInstance.get(`${API_URL}/all`, { params });
+    return unwrapData(response);
+  },
+
+  getAllExpenses: async (params = {}) => {
+    const response = await axiosInstance.get(`${API_URL}/all`, { params });
+    return unwrapData(response);
+  },
+
+  overrideExpense: async (id, payload) => {
+    const response = await axiosInstance.post(`${API_URL}/${id}/override`, payload);
+    return unwrapData(response);
+  },
+
+  getExpenseAuditTrail: async (id) => {
+    const response = await axiosInstance.get(`${API_URL}/${id}/audit`);
+    return unwrapData(response);
   },
 };

@@ -9,6 +9,12 @@ type User = {
   name: string;
   email: string;
   role: Role;
+  company?: {
+    id?: string;
+    name?: string;
+    country?: string;
+    currencyCode?: string;
+  };
 };
 
 type AuthState = {

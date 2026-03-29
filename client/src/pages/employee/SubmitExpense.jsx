@@ -47,20 +47,17 @@ const SubmitExpense = () => {
     setLoading(true);
 
     try {
-      const submitData = new FormData();
-      submitData.append("description", formData.description);
-      submitData.append("amount", formData.amount);
-      submitData.append("category", formData.category);
-      submitData.append("date", formData.date);
-      submitData.append("notes", formData.notes);
-      if (receipt) {
-        submitData.append("receipt", receipt);
-      }
+      const submitData = {
+        description: formData.description,
+        amount: Number(formData.amount),
+        category: formData.category,
+        date: formData.date,
+      };
 
       await expenseService.createExpense(submitData);
       navigate("/employee/expenses");
     } catch (err) {
-      setError(err.response?.data?.message || "Failed to submit expense");
+      setError(err.response?.data?.error || err.message || "Failed to submit expense");
     } finally {
       setLoading(false);
     }

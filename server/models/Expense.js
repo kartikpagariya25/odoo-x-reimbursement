@@ -47,6 +47,9 @@ const expenseSchema = new mongoose.Schema({
   approvalChain: [
     {
       stepIndex: Number,
+      ruleType: String,
+      isParallel: Boolean,
+      threshold: Number,
       status: {
         type: String,
         enum: ["PENDING", "APPROVED", "REJECTED"],
@@ -62,6 +65,14 @@ const expenseSchema = new mongoose.Schema({
             type: String,
             enum: ["PENDING", "APPROVED", "REJECTED"],
             set: normalizeWorkflowStatus
+          },
+          isRequired: {
+            type: Boolean,
+            default: false
+          },
+          order: {
+            type: Number,
+            default: 0
           }
         }
       ]

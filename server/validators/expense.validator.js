@@ -35,10 +35,11 @@ const validateSubmitExpense = (req) => {
 	const errors = [];
 	const payload = req.body || {};
 	const { amount, category, currency, description } = payload;
+	const numericAmount = Number(amount);
 
 	if (amount === undefined || amount === null) {
 		errors.push("amount is required");
-	} else if (typeof amount !== "number" || Number.isNaN(amount) || amount < 0) {
+	} else if (Number.isNaN(numericAmount) || numericAmount < 0) {
 		errors.push("amount must be a non-negative number");
 	}
 
