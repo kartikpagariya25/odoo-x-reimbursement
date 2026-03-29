@@ -8,7 +8,9 @@ const ApprovalAction = require("../models/ApprovalAction");
 const AuditLog = require("../models/AuditLog");
 const emailService = require("../services/email.service");
 const { parseReceipt } = require("../services/ocr.service");
+const { matchExpenseToRule, buildApprovalChain } = require("../services/rule.service");
 const { STATUS } = require("../config/constants");
+
 
 exports.scanReceipt = async (req, res) => {
   if (!req.file) {
@@ -72,8 +74,9 @@ exports.createExpense = async (req, res) => {
       return res.status(400).json({ error: "Approval rule has no valid steps" });
     }
 
+    const userId = req.user._id || req.user.userId;
     const expense = await Expense.create({
-      employeeId: req.user._id,
+      employeeId: userId,
       companyId: req.user.companyId,
       ruleId: rule._id,
       amount,
@@ -98,7 +101,7 @@ exports.createExpense = async (req, res) => {
     }
 
     await AuditLog.create({
-      actorId: req.user._id,
+      actorId: req.user._id || req.user.userId,
       companyId: req.user.companyId,
       action: "CREATED_EXPENSE",
       targetId: expense._id,
@@ -119,13 +122,15 @@ exports.approveExpense = async (req, res) => {
       return res.status(400).json({ error: "Expense not found or not pending" });
     }
 
+    const userId = req.user._id || req.user.userId;
+
     // Find if user is authorized approver in current step
     const currentStepDoc = expense.approvalChain.find(s => s.stepIndex === expense.currentStep);
     if (!currentStepDoc || currentStepDoc.status !== STATUS.PENDING) {
       return res.status(400).json({ error: "Current step is already processed or invalid" });
     }
 
-    const approverDoc = currentStepDoc.approvers.find(a => a.userId.toString() === req.user._id.toString());
+    const approverDoc = currentStepDoc.approvers.find(a => String(a.userId) === String(userId));
     if (!approverDoc || approverDoc.status !== STATUS.PENDING) {
       return res.status(403).json({ error: "Not authorized or already approved" });
     }
@@ -137,13 +142,13 @@ exports.approveExpense = async (req, res) => {
     // Record Action
     await ApprovalAction.create({
       expenseId: expense._id,
-      approverId: req.user._id,
+      approverId: userId,
       action: STATUS.APPROVED,
       stepIndex: expense.currentStep
     });
 
     await AuditLog.create({
-      actorId: req.user._id,
+      actorId: userId,
       companyId: req.user.companyId,
       action: "APPROVED_STEP",
       targetId: expense._id
@@ -188,12 +193,14 @@ exports.rejectExpense = async (req, res) => {
       return res.status(400).json({ error: "Expense not found or not pending" });
     }
 
+    const userId = req.user._id || req.user.userId;
+
     const currentStepDoc = expense.approvalChain.find(s => s.stepIndex === expense.currentStep);
     if (!currentStepDoc || currentStepDoc.status !== STATUS.PENDING) {
       return res.status(400).json({ error: "Current step is already processed or invalid" });
     }
 
-    const approverDoc = currentStepDoc.approvers.find(a => a.userId.toString() === req.user._id.toString());
+    const approverDoc = currentStepDoc.approvers.find(a => String(a.userId) === String(userId));
     if (!approverDoc || approverDoc.status !== STATUS.PENDING) {
       return res.status(403).json({ error: "Not authorized or already processed" });
     }
@@ -207,14 +214,14 @@ exports.rejectExpense = async (req, res) => {
 
     await ApprovalAction.create({
       expenseId: expense._id,
-      approverId: req.user._id,
+      approverId: userId,
       action: STATUS.REJECTED,
       stepIndex: expense.currentStep,
       comment
     });
 
     await AuditLog.create({
-      actorId: req.user._id,
+      actorId: userId,
       companyId: req.user.companyId,
       action: "REJECTED_EXPENSE",
       targetId: expense._id,
@@ -230,5 +237,262 @@ exports.rejectExpense = async (req, res) => {
 
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+};
+
+/**
+ * Submit expense (Employee submits their own expense)
+ * POST /expenses
+ * Authenticated endpoint - uses req.user.userId as employee
+ * Matches expense to rule and builds approval chain
+ */
+exports.submitExpense = async (req, res) => {
+  try {
+    const employeeId = req.user.userId;
+    const companyId = req.user.companyId;
+    const { amount, category, currency, description, merchantName, date } = req.body;
+
+    // Get employee
+    const employee = await User.findById(employeeId);
+    if (!employee) {
+      return res.status(404).json({ error: "Employee not found" });
+    }
+
+    if (!employee.companyId.equals(companyId)) {
+      return res.status(403).json({ error: "Employee not in your company" });
+    }
+
+    // Match to rule
+    const rule = await matchExpenseToRule(category, companyId);
+    if (!rule) {
+      return res.status(400).json({ error: `No approval rule found for category: ${category}` });
+    }
+
+    // Build approval chain
+    const approvalChain = await buildApprovalChain(rule, employeeId, companyId);
+
+    // Create expense
+    const expense = await Expense.create({
+      employeeId: mongoose.Types.ObjectId.createFromHexString(employeeId),
+      companyId: mongoose.Types.ObjectId.createFromHexString(companyId),
+      ruleId: rule._id,
+      amount,
+      category,
+      currency: currency || "USD",
+      description: description || "",
+      merchantName: merchantName || "",
+      date: date || new Date(),
+      approvalChain,
+      currentStep: 0,
+      status: "PENDING"
+    });
+
+    await expense.populate("employeeId", "name email");
+    await expense.populate("ruleId", "name category");
+
+    // Create audit log
+    await AuditLog.create({
+      actorId: employeeId,
+      companyId,
+      action: "EXPENSE_SUBMITTED",
+      details: {
+        expenseId: expense._id,
+        amount,
+        category
+      }
+    });
+
+    return res.status(201).json({
+      success: true,
+      data: expense
+    });
+  } catch (error) {
+    console.error("❌ Submit expense error:", error);
+    return res.status(500).json({ error: error.message || "Failed to submit expense" });
+  }
+};
+
+/**
+ * Get my expenses (Employee views own expenses)
+ * GET /expenses
+ * Authenticated endpoint - filters by req.user.userId
+ */
+exports.getMyExpenses = async (req, res) => {
+  try {
+    const employeeId = req.user.userId;
+
+    const expenses = await Expense.find({ employeeId })
+      .populate("employeeId", "name email")
+      .populate("ruleId", "name category")
+      .sort({ createdAt: -1 });
+
+    return res.status(200).json({
+      success: true,
+      data: expenses
+    });
+  } catch (error) {
+    console.error("❌ Get my expenses error:", error);
+    return res.status(500).json({ error: error.message || "Failed to fetch expenses" });
+  }
+};
+
+/**
+ * Get expense detail
+ * GET /expenses/:id
+ * Authenticated endpoint
+ * Employee can only see own, admin can see all
+ */
+exports.getExpenseDetail = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { userId, role, companyId } = req.user;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: "Invalid expense ID" });
+    }
+
+    const expense = await Expense.findById(id)
+      .populate("employeeId", "name email role")
+      .populate("ruleId", "name category")
+      .populate("approvalChain.approvers.userId", "name email role");
+
+    if (!expense) {
+      return res.status(404).json({ error: "Expense not found" });
+    }
+
+    // Check access: employee can see own, admin can see all in company
+    if (role === "EMPLOYEE" && !expense.employeeId._id.equals(userId)) {
+      return res.status(403).json({ error: "Forbidden: Cannot view other employee's expenses" });
+    }
+
+    if (!expense.companyId.equals(companyId)) {
+      return res.status(403).json({ error: "Forbidden: Expense not in your company" });
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: expense
+    });
+  } catch (error) {
+    console.error("❌ Get expense detail error:", error);
+    return res.status(500).json({ error: error.message || "Failed to fetch expense" });
+  }
+};
+
+/**
+ * Get all expenses (Admin only)
+ * GET /expenses/all
+ * Admin views all expenses in company
+ */
+exports.getAllExpenses = async (req, res) => {
+  try {
+    const companyId = req.user.companyId;
+
+    const expenses = await Expense.find({ companyId })
+      .populate("employeeId", "name email role")
+      .populate("ruleId", "name category")
+      .sort({ createdAt: -1 });
+
+    return res.status(200).json({
+      success: true,
+      data: expenses
+    });
+  } catch (error) {
+    console.error("❌ Get all expenses error:", error);
+    return res.status(500).json({ error: error.message || "Failed to fetch expenses" });
+  }
+};
+
+/**
+ * Override expense (Admin force approve/reject)
+ * POST /expenses/:id/override
+ * Admin only - bypass approval workflow
+ */
+exports.overrideExpense = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { action, reason } = req.body;
+    const { userId, companyId } = req.user;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: "Invalid expense ID" });
+    }
+
+    const expense = await Expense.findOne({ _id: id, companyId });
+    if (!expense) {
+      return res.status(404).json({ error: "Expense not found" });
+    }
+
+    // Set status to action (APPROVED or REJECTED)
+    expense.status = action;
+
+    // Mark all approval steps as completed
+    if (expense.approvalChain) {
+      for (const step of expense.approvalChain) {
+        step.status = action;
+        for (const approver of step.approvers) {
+          approver.status = action;
+        }
+      }
+    }
+
+    await expense.save();
+
+    // Create audit log
+    await AuditLog.create({
+      actorId: userId,
+      companyId,
+      action: `EXPENSE_${action}_OVERRIDE`,
+      details: {
+        expenseId: expense._id,
+        reason: reason || "",
+        amount: expense.amount
+      }
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: expense
+    });
+  } catch (error) {
+    console.error("❌ Override expense error:", error);
+    return res.status(500).json({ error: error.message || "Failed to override expense" });
+  }
+};
+
+/**
+ * Get team expenses (Manager views team members' expenses)
+ * GET /team/expenses
+ * Manager role - views only direct reports' expenses
+ */
+exports.getTeamExpenses = async (req, res) => {
+  try {
+    const managerId = req.user.userId;
+    const companyId = req.user.companyId;
+
+    // Find all employees managed by this manager
+    const teamMembers = await User.find({
+      managerId,
+      companyId
+    });
+
+    const teamMemberIds = teamMembers.map(m => m._id);
+
+    // Get expenses for team members
+    const expenses = await Expense.find({
+      employeeId: { $in: teamMemberIds },
+      companyId
+    })
+      .populate("employeeId", "name email role")
+      .populate("ruleId", "name category")
+      .sort({ createdAt: -1 });
+
+    return res.status(200).json({
+      success: true,
+      data: expenses
+    });
+  } catch (error) {
+    console.error("❌ Get team expenses error:", error);
+    return res.status(500).json({ error: error.message || "Failed to fetch team expenses" });
   }
 };

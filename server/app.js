@@ -27,6 +27,11 @@ app.get("/api/health", (req, res) => {
 // 🔹 Routes
 app.use("/api/auth", require("./routes/auth.routes"));
 app.use("/api/expenses", require("./routes/expense.routes"));
+app.use("/api/users", require("./routes/user.routes"));
+app.use("/api/rules", require("./routes/rule.routes"));
+app.use("/api/approval", require("./routes/approval.routes"));
+app.use("/api/team", require("./routes/team.routes"));
+app.use("/api/currency", require("./routes/currency.routes"));
 
 // 🔹 Serve frontend if exists
 const clientDistPath = path.resolve(__dirname, "../client/dist");
